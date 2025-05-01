@@ -1,4 +1,4 @@
-name: Test and deploy
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -6,32 +6,40 @@ on:
       - main
 
 jobs:
-  main:
+  build:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v4
 
-    - name: Setup Node
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-
-    - name: Install
-      run: |
-        npm install
-
-    - name: Test
-      run: |
-        npm run test
+    - name: 'Get latest version'
+      id: version
+      run: echo "id=$(curl -s https://raw.githubusercontent.com/misode/mcmeta/summary/version.txt)" >> $GITHUB_OUTPUT
 
     - name: Build
       run: |
+        npm install
+        export latest_version="'${{ steps.version.outputs.id }}'"
         npm run build
 
-    - name: Deploy
-      uses: JamesIves/github-pages-deploy-action@releases/v3
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        BRANCH: gh-pages
-        FOLDER: dist
+        path: ./src
+
+  deploy:
+    needs: build
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        id: deployment
